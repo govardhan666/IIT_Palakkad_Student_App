@@ -1,0 +1,53 @@
+name: iit_pkd_student_app
+description: IIT Palakkad Student App - A companion app for IIT Palakkad students
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_bloc: ^8.1.3
+
+  # Networking
+  dio: ^5.3.3
+  http: ^1.1.0
+
+  # Storage
+  shared_preferences: ^2.2.2
+  flutter_secure_storage: ^9.0.0
+
+  # Navigation
+  go_router: ^12.1.1
+
+  # HTML Parsing
+  html: ^0.15.4
+
+  # Utilities
+  intl: ^0.18.1
+
+  # UI
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+
+  # Assets (to be added later)
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/
+
+  # Fonts (to be added later)
+  # fonts:
+  #   - family: Roboto
+  #     fonts:
+  #       - asset: assets/fonts/Roboto-Regular.ttf
