@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/auth/presentation/bloc/auth_state.dart';
+import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/timetable/presentation/screens/timetable_screen.dart';
 import '../../features/bus_schedule/presentation/screens/bus_schedule_screen.dart';
@@ -10,6 +14,7 @@ import '../../shared/widgets/main_scaffold.dart';
 
 /// Route paths
 class AppRoutes {
+  static const String login = '/login';
   static const String home = '/';
   static const String timetable = '/timetable';
   static const String busSchedule = '/bus-schedule';
@@ -21,14 +26,26 @@ class AppRoutes {
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>();
 
-/// App Router Configuration
+/// App Router Configuration with Authentication
 class AppRouter {
-  static final GoRouter router = GoRouter(
+  final AuthBloc authBloc;
+
+  AppRouter({required this.authBloc});
+
+  late final GoRouter router = GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: AppRoutes.home,
     debugLogDiagnostics: true,
+    refreshListenable: GoRouterRefreshStream(authBloc.stream),
+    redirect: _guardRoute,
     routes: [
-      /// Shell Route for Bottom Navigation
+      /// Login Route (outside shell)
+      GoRoute(
+        path: AppRoutes.login,
+        builder: (context, state) => const LoginScreen(),
+      ),
+
+      /// Shell Route for Bottom Navigation (protected)
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) {
@@ -107,4 +124,49 @@ class AppRouter {
       ),
     ),
   );
+
+  /// Route guard that redirects based on authentication state
+  String? _guardRoute(BuildContext context, GoRouterState state) {
+    final authState = authBloc.state;
+    final isLoggingIn = state.matchedLocation == AppRoutes.login;
+
+    // If still checking auth, don't redirect yet
+    if (authState is AuthInitial || authState is AuthLoading) {
+      return null;
+    }
+
+    // If authenticated
+    if (authState is AuthAuthenticated) {
+      // Redirect away from login page if already authenticated
+      if (isLoggingIn) {
+        return AppRoutes.home;
+      }
+      return null;
+    }
+
+    // If not authenticated (Unauthenticated or Error state)
+    if (!isLoggingIn) {
+      return AppRoutes.login;
+    }
+
+    return null;
+  }
+}
+
+/// Stream wrapper for GoRouter refresh
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription = stream.asBroadcastStream().listen((_) {
+      notifyListeners();
+    });
+  }
+
+  late final dynamic _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
 }
