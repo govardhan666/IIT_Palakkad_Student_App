@@ -1,12 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 
-class AccountScreen extends StatelessWidget {
+class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
+
+  @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen> {
+  bool _isDarkMode = false;
+  bool _notificationsEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool('dark_mode') ?? false;
+      _notificationsEnabled = prefs.getBool('notifications') ?? true;
+    });
+  }
+
+  Future<void> _toggleDarkMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('dark_mode', value);
+    setState(() => _isDarkMode = value);
+    // Note: Full theme implementation would require ThemeBloc
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(value ? 'Dark mode enabled' : 'Light mode enabled'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
+  Future<void> _toggleNotifications(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notifications', value);
+    setState(() => _notificationsEnabled = value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,22 +63,37 @@ class AccountScreen extends StatelessWidget {
       body: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           final username = state is AuthAuthenticated ? state.username : 'User';
+          final sessionId = state is AuthAuthenticated
+              ? state.session.sessionId.substring(0, 8)
+              : null;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                const SizedBox(height: 24),
                 // Profile Header
-                _buildProfileHeader(context, username),
-                const SizedBox(height: 32),
+                _buildProfileCard(context, username, sessionId),
+                const SizedBox(height: 20),
 
-                // Account Options
-                _buildAccountOptions(context),
+                // Quick Stats
+                _buildQuickStats(context),
+                const SizedBox(height: 20),
+
+                // Settings Section
+                _buildSettingsSection(context),
+                const SizedBox(height: 20),
+
+                // Links Section
+                _buildLinksSection(context),
+                const SizedBox(height: 20),
+
+                // App Info Section
+                _buildAppInfoSection(context),
                 const SizedBox(height: 24),
 
                 // Logout Button
                 _buildLogoutButton(context),
+                const SizedBox(height: 16),
               ],
             ),
           );
@@ -41,102 +102,334 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context, String username) {
-    return Column(
-      children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              username.isNotEmpty ? username[0].toUpperCase() : 'U',
-              style: const TextStyle(
-                color: AppColors.white,
-                fontSize: 40,
-                fontWeight: FontWeight.bold,
+  Widget _buildProfileCard(BuildContext context, String username, String? sessionId) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // Avatar
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary,
+                    AppColors.primary.withOpacity(0.7),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          username,
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'IIT Palakkad Student',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            const SizedBox(height: 16),
+
+            // Name
+            Text(
+              username,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'IIT Palakkad Student',
+              style: TextStyle(
                 color: AppColors.textSecondary,
               ),
+            ),
+
+            // Session indicator
+            if (sessionId != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Session active',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickStats(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            context,
+            icon: Icons.calendar_today,
+            value: '${DateTime.now().difference(DateTime(DateTime.now().year, 7, 1)).inDays}',
+            label: 'Days this Sem',
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            context,
+            icon: Icons.school,
+            value: 'B.Tech',
+            label: 'Program',
+            color: AppColors.accent,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            context,
+            icon: Icons.location_on,
+            value: 'PKD',
+            label: 'Campus',
+            color: AppColors.success,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildAccountOptions(BuildContext context) {
+  Widget _buildStatCard(
+    BuildContext context, {
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsSection(BuildContext context) {
     return Card(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildOptionTile(
-            context,
-            icon: Icons.person_outline,
-            title: 'Profile',
-            subtitle: 'View your profile details',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profile feature coming soon')),
-              );
-            },
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              'Settings',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
+          SwitchListTile(
+            secondary: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                _isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                color: AppColors.primary,
+              ),
+            ),
+            title: const Text('Dark Mode'),
+            subtitle: Text(
+              _isDarkMode ? 'Dark theme enabled' : 'Light theme enabled',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            value: _isDarkMode,
+            onChanged: _toggleDarkMode,
+          ),
+          const Divider(height: 1),
+          SwitchListTile(
+            secondary: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.notifications_outlined,
+                color: AppColors.warning,
+              ),
+            ),
+            title: const Text('Notifications'),
+            subtitle: Text(
+              _notificationsEnabled ? 'Notifications enabled' : 'Notifications disabled',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            value: _notificationsEnabled,
+            onChanged: _toggleNotifications,
           ),
           const Divider(height: 1),
           _buildOptionTile(
             context,
             icon: Icons.wifi,
+            iconColor: const Color(0xFFFBBC05),
             title: 'WiFi Settings',
-            subtitle: 'Configure campus WiFi',
+            subtitle: 'Configure campus WiFi login',
+            onTap: () => context.push(AppRoutes.wifi),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinksSection(BuildContext context) {
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              'Quick Links',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
+          _buildOptionTile(
+            context,
+            icon: Icons.school,
+            iconColor: AppColors.primary,
+            title: 'Records Portal',
+            subtitle: 'Access academic records',
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('WiFi settings coming soon')),
+                const SnackBar(content: Text('Opening records portal...')),
               );
             },
           ),
           const Divider(height: 1),
           _buildOptionTile(
             context,
-            icon: Icons.notifications_outlined,
-            title: 'Notifications',
-            subtitle: 'Manage notification preferences',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Notifications feature coming soon')),
-              );
-            },
+            icon: Icons.people,
+            iconColor: AppColors.accent,
+            title: 'Faculty Directory',
+            subtitle: 'View faculty contacts',
+            onTap: () => context.push(AppRoutes.faculty),
           ),
           const Divider(height: 1),
           _buildOptionTile(
             context,
-            icon: Icons.dark_mode_outlined,
-            title: 'Theme',
-            subtitle: 'Light / Dark mode',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Theme settings coming soon')),
-              );
-            },
+            icon: Icons.grade,
+            iconColor: AppColors.success,
+            title: 'My Grades',
+            subtitle: 'View academic performance',
+            onTap: () => context.push(AppRoutes.grades),
           ),
-          const Divider(height: 1),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppInfoSection(BuildContext context) {
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              'About',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
           _buildOptionTile(
             context,
             icon: Icons.info_outline,
-            title: 'About',
-            subtitle: 'App version and info',
+            iconColor: AppColors.info,
+            title: 'About App',
+            subtitle: 'Version 1.0.0',
+            onTap: () => _showAboutDialog(context),
+          ),
+          const Divider(height: 1),
+          _buildOptionTile(
+            context,
+            icon: Icons.privacy_tip_outlined,
+            iconColor: AppColors.textSecondary,
+            title: 'Privacy Policy',
+            subtitle: 'Read our privacy policy',
             onTap: () {
-              _showAboutDialog(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Privacy policy coming soon')),
+              );
+            },
+          ),
+          const Divider(height: 1),
+          _buildOptionTile(
+            context,
+            icon: Icons.feedback_outlined,
+            iconColor: AppColors.warning,
+            title: 'Send Feedback',
+            subtitle: 'Help us improve the app',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Feedback feature coming soon')),
+              );
             },
           ),
         ],
@@ -147,6 +440,7 @@ class AccountScreen extends StatelessWidget {
   Widget _buildOptionTile(
     BuildContext context, {
     required IconData icon,
+    required Color iconColor,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
@@ -155,17 +449,20 @@ class AccountScreen extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.1),
+          color: iconColor.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: AppColors.primary),
+        child: Icon(icon, color: iconColor, size: 20),
       ),
       title: Text(title),
       subtitle: Text(
         subtitle,
         style: Theme.of(context).textTheme.bodySmall,
       ),
-      trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: AppColors.textSecondary,
+      ),
       onTap: onTap,
     );
   }
@@ -175,12 +472,15 @@ class AccountScreen extends StatelessWidget {
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: () => _showLogoutConfirmation(context),
-        icon: const Icon(Icons.logout, color: AppColors.error),
+        icon: Icon(Icons.logout, color: AppColors.error),
         label: const Text('Sign Out'),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.error,
-          side: const BorderSide(color: AppColors.error),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          side: BorderSide(color: AppColors.error),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );
@@ -190,19 +490,33 @@ class AccountScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.logout, color: AppColors.error),
+            const SizedBox(width: 12),
+            const Text('Sign Out'),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to sign out? You will need to log in again to access your account.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.of(dialogContext).pop();
               context.read<AuthBloc>().add(const AuthLogoutRequested());
             },
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Sign Out'),
           ),
         ],
@@ -214,16 +528,42 @@ class AccountScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('IIT PKD Student'),
-        content: const Column(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(Icons.school, color: AppColors.primary),
+            ),
+            const SizedBox(width: 12),
+            const Text('IIT PKD Student'),
+          ],
+        ),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Version 1.0.0'),
-            SizedBox(height: 8),
+            _buildAboutItem('Version', '1.0.0'),
+            const SizedBox(height: 8),
+            _buildAboutItem('Build', '2024.1'),
+            const SizedBox(height: 16),
             Text(
-              'An unofficial app for IIT Palakkad students to access campus services.',
-              style: TextStyle(color: AppColors.textSecondary),
+              'An unofficial app for IIT Palakkad students to access campus services, view timetables, check bus schedules, and more.',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Made with ❤️ for IIT Palakkad',
+              style: TextStyle(fontStyle: FontStyle.italic),
             ),
           ],
         ),
@@ -234,6 +574,23 @@ class AccountScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAboutItem(String label, String value) {
+    return Row(
+      children: [
+        Text(
+          '$label: ',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+      ],
     );
   }
 }

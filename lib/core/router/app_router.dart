@@ -7,9 +7,13 @@ import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/timetable/presentation/screens/timetable_screen.dart';
-import '../../features/bus_schedule/presentation/screens/bus_schedule_screen.dart';
-import '../../features/mess_menu/presentation/screens/mess_menu_screen.dart';
+import '../../features/bus/presentation/screens/bus_schedule_screen.dart';
+import '../../features/mess/presentation/screens/mess_menu_screen.dart';
 import '../../features/account/presentation/screens/account_screen.dart';
+import '../../features/grades/presentation/screens/grades_screen.dart';
+import '../../features/exams/presentation/screens/exams_screen.dart';
+import '../../features/faculty/presentation/screens/faculty_screen.dart';
+import '../../features/wifi/presentation/screens/wifi_screen.dart';
 import '../../shared/widgets/main_scaffold.dart';
 
 /// Route paths
@@ -20,6 +24,12 @@ class AppRoutes {
   static const String busSchedule = '/bus-schedule';
   static const String messMenu = '/mess-menu';
   static const String account = '/account';
+
+  // Quick access routes
+  static const String grades = '/grades';
+  static const String exams = '/exams';
+  static const String faculty = '/faculty';
+  static const String wifi = '/wifi';
 }
 
 /// Global navigator keys for shell navigation
@@ -43,6 +53,30 @@ class AppRouter {
       GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => const LoginScreen(),
+      ),
+
+      /// Grades Route (outside shell, pushes on top)
+      GoRoute(
+        path: AppRoutes.grades,
+        builder: (context, state) => const GradesScreen(),
+      ),
+
+      /// Exams Route (outside shell, pushes on top)
+      GoRoute(
+        path: AppRoutes.exams,
+        builder: (context, state) => const ExamsScreen(),
+      ),
+
+      /// Faculty Route (outside shell, pushes on top)
+      GoRoute(
+        path: AppRoutes.faculty,
+        builder: (context, state) => const FacultyScreen(),
+      ),
+
+      /// WiFi Route (outside shell, pushes on top)
+      GoRoute(
+        path: AppRoutes.wifi,
+        builder: (context, state) => const WifiScreen(),
       ),
 
       /// Shell Route for Bottom Navigation (protected)
